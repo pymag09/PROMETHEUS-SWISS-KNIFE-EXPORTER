@@ -7,13 +7,24 @@ from yaml import load
 import syslog
 import os
 
+class Logging:
+    def __init__(self, syslog=False):
+        self.syslog = syslog
+
+    def doLog(self, msg):
+        if self.syslog:
+            syslog.syslog(msg)
+        else:
+            print(msg)
+
 class ZabbixAgent:
-    def __init__(self, host, port, timeout, request = ''):
+    def __init__(self, host, port, timeout, log, request = ''):
         self.host = host
         self.port = int(port)
         self.timeout = float(timeout)
         self.request = request.encode('UTF-8')
         self.value = 0.0
+        self.log = log
 
     def _unpack_answer(self, data):
         header = struct.Struct("<4sBQ")
@@ -36,13 +47,13 @@ class ZabbixAgent:
             if len(data) > 13:
                 self._unpack_answer(data)
         except socket.timeout as err:
-            syslog.syslog('Zabbix host: %s Error: %s' % (self.host, str(err)))
+            self.log.doLog('Zabbix host: %s Error: %s' % (self.host, str(err)))
         except socket.gaierror as err:
-            syslog.syslog('Zabbix host: %s Error: %s' % (self.host, str(err)))
+            self.log.doLog('Zabbix host: %s Error: %s' % (self.host, str(err)))
         except ConnectionRefusedError as err:
-            syslog.syslog('Zabbix Port: %s Error: %s' % (self.port, str(err)))
+            self.log.doLog('Zabbix Port: %s Error: %s' % (self.port, str(err)))
         except BlockingIOError as err:
-            syslog.syslog('Please check timeout parameter in config file. Error: %s' % str(err))
+            self.log.doLog('Please check timeout parameter in config file. Error: %s' % str(err))
         finally:
             zsocket.close()
 
@@ -54,7 +65,8 @@ class ZabbixCollector(object):
     def collect(self):
         zagent = ZabbixAgent(self.zcfg['zabbix_config']['host'],
                              self.zcfg['zabbix_config']['port'],
-                             self.zcfg['zabbix_config']['socket_timeout'])
+                             self.zcfg['zabbix_config']['socket_timeout'],
+                             self.zcfg['log_point'])
         for exp_metric in self.zcfg['metrics']:
             zagent.request = exp_metric['metric'].encode('UTF-8')
             zagent.query_zabbix_agent()
@@ -66,22 +78,25 @@ class ZabbixCollector(object):
                 metric.add_metric(exp_metric['labels'], zagent.value)
                 yield metric
             except ValueError as err:
-                syslog.syslog('Zabbix exporter: Error: %s' % str(err))
+                self.zcfg['log_point'].doLog('Zabbix exporter: Error: %s' % str(err))
+
 
 if __name__ == "__main__":
-        possible_path_config = ['/etc/prometheus_swiss_knife_exporter/exporter_config.yml',
-                                '~/.exporter_config.yml']
-        possible_path_config.append(os.path.dirname(os.path.realpath(__file__)) + '/exporter_config.yml')
-        print(possible_path_config)
+        possible_path_config = [os.path.dirname(os.path.realpath(__file__)) + '/exporter_config.yml',
+                                '~/.exporter_config.yml',
+                                '/etc/prometheus_swiss_knife_exporter/exporter_config.yml']
+
         syslog.syslog('Zabbix exporter: INFO: looking for exporter_config.yml...')
         for cfg_path in possible_path_config:
             if not os.path.isfile(cfg_path):
                 continue
-            syslog.syslog('Zabbix exporter: INFO: %s found' % cfg_path)
+
             with open('./exporter_config.yml') as yml_file:
                 ex_cfg = load(yml_file)
             syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_LOCAL7)
+            ex_cfg['log_point'] = Logging(ex_cfg['exporter_config']['syslog'])
+            ex_cfg['log_point'].doLog('Zabbix exporter: INFO: %s found' % cfg_path)
             REGISTRY.register(ZabbixCollector(ex_cfg))
-            start_http_server(8000)
+            start_http_server(ex_cfg['exporter_config']['exporter_port'])
             while True: time.sleep(1)
 

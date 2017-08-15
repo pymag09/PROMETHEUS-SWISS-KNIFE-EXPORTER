@@ -1,18 +1,22 @@
 ---
+
 zabbix_config:
   host: localhost
   port: 10050
   socket_timeout: 30
+exporter_config:
+  exporter_port: 9111
+  syslog: False
 metrics:
   -
-    name: mem-free
+    name: mem_free
     metric: vm.memory.size[pavailable]
     labels:
       - mem
       - avaliable_memory
       - host
   -
-    name: proc-count
+    name: proc_count
     metric: proc.num[]
     labels:
       - processes
