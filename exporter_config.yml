@@ -1,0 +1,20 @@
+---
+zabbix_config:
+  host: localhost
+  port: 10050
+  socket_timeout: 30
+metrics:
+  -
+    name: mem-free
+    metric: vm.memory.size[pavailable]
+    labels:
+      - mem
+      - avaliable_memory
+      - host
+  -
+    name: proc-count
+    metric: proc.num[]
+    labels:
+      - processes
+      - host
+      - count
