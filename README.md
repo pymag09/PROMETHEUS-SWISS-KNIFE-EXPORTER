@@ -37,8 +37,12 @@ metrics:
     labels: []
 ```
 ![screenshot](images/example.png)
+![screenshot](images/example1.png)
 
 By default `swiss_knife_exporter` looks for `exporter_config.yml` in:
 * /etc/prometheus_swiss_knife_exporter/
 * ~/.exporter_config.yml
 * in folder with `swiss_knife_exporter.py`
+
+## DEMO
+You can try it by vagrant up https://github.com/pymag09/local_env/tree/master/consul_prometheus
