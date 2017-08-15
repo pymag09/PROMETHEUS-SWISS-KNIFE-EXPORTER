@@ -1,4 +1,4 @@
-a#!/usr/bin/python3
+#!/usr/bin/python3
 
 import time
 from prometheus_client.core import GaugeMetricFamily, REGISTRY
