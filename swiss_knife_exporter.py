@@ -74,7 +74,7 @@ class ZabbixCollector(object):
             zagent.query_zabbix_agent()
             try:
                 metric = GaugeMetricFamily(
-                    'zabbix_%s' % exp_metric['name'],
+                    'skm_%s' % exp_metric['name'],
                     'metrics from zabbix',
                     labels=exp_metric['labels'].keys())
                 metric.add_metric(exp_metric['labels'].values(), zagent.value)
