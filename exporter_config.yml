@@ -12,13 +12,11 @@ metrics:
     name: mem_free
     metric: vm.memory.size[pavailable]
     labels:
-      - mem
-      - avaliable_memory
-      - host
+      type: mem
+      env: dev
   -
     name: proc_count
     metric: proc.num[]
     labels:
-      - processes
-      - host
-      - count
+      type: processes
+      env: dev

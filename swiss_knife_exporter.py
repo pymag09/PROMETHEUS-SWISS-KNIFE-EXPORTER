@@ -76,8 +76,8 @@ class ZabbixCollector(object):
                 metric = GaugeMetricFamily(
                     'zabbix_%s' % exp_metric['name'],
                     'metrics from zabbix',
-                    labels=exp_metric['labels'])
-                metric.add_metric(exp_metric['labels'], zagent.value)
+                    labels=exp_metric['labels'].keys())
+                metric.add_metric(exp_metric['labels'].values(), zagent.value)
                 yield metric
             except ValueError as err:
                 self.zcfg['log_point'].doLog('Zabbix exporter: Error: %s' % str(err))
@@ -101,4 +101,3 @@ if __name__ == "__main__":
             REGISTRY.register(ZabbixCollector(ex_cfg))
             start_http_server(ex_cfg['exporter_config']['exporter_port'])
             while True: time.sleep(1)
-
