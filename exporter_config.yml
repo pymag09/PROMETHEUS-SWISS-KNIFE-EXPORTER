@@ -7,16 +7,22 @@ zabbix_config:
 exporter_config:
   exporter_port: 9111
   syslog: False
+  useZabbix: false
 metrics:
-  -
-    name: mem_free
-    metric: vm.memory.size[pavailable]
+#  -
+#    name: mem_free
+#    metric: vm.memory.size[pavailable]
+#    labels:
+#      type: mem
+#      env: dev
+#  -
+#    name: proc_count
+#    metric: proc.num[]
+#    labels:
+#      type: processes
+#      env: dev
+  - name: cpu_core
+    metric: "cat /proc/cpuinfo | grep processor | wc -l"
     labels:
-      type: mem
-      env: dev
-  -
-    name: proc_count
-    metric: proc.num[]
-    labels:
-      type: processes
+      type: cpu
       env: dev

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import time
 from prometheus_client.core import GaugeMetricFamily, REGISTRY
 from prometheus_client import start_http_server
+from yaml import load, FullLoader
+import time
+import subprocess
 import socket
 import struct
-from yaml import load
 import syslog
 import os
 
@@ -34,7 +35,7 @@ class ZabbixAgent:
         payload = struct.Struct("<%ds" % length)
         self.value = float(payload.unpack(data[13:])[0])
 
-    def query_zabbix_agent(self):
+    def runQuery(self):
         zsocket = None
         try:
             zsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -59,29 +60,43 @@ class ZabbixAgent:
         finally:
             zsocket.close()
 
+class DirectShellExec:
+    def __init__(self, log, request = ''):
+        self.request = request
+        self.value = 0.0
+        self.log = log
 
-class ZabbixCollector(object):
+    def runQuery(self):
+        try:
+            self.value = float(subprocess.check_output(self.request, shell=True).decode("utf-8"))
+        except subprocess.CalledProcessError as err:
+            self.log.doLog('Shell command execution error. Error: %s' % err)
+
+class MainPromTread(object):
     def __init__(self, yml_obj):
-        self.zcfg = yml_obj
+        self.metricSource = None
+        self.cfg = yml_obj
+        if self.cfg['exporter_config']['useZabbix']:
+            self.metricSource = ZabbixAgent(yml_obj['zabbix_config']['host'],
+                                             yml_obj['zabbix_config']['port'],
+                                             yml_obj['zabbix_config']['socket_timeout'],
+                                             yml_obj['log_point'])
+        else:
+            self.metricSource = DirectShellExec(yml_obj['log_point'])
 
     def collect(self):
-        zagent = ZabbixAgent(self.zcfg['zabbix_config']['host'],
-                             self.zcfg['zabbix_config']['port'],
-                             self.zcfg['zabbix_config']['socket_timeout'],
-                             self.zcfg['log_point'])
-        for exp_metric in self.zcfg['metrics']:
-            zagent.request = exp_metric['metric'].encode('UTF-8')
-            zagent.query_zabbix_agent()
+        for exp_metric in self.cfg['metrics']:
+            self.metricSource.request = exp_metric['metric']
+            self.metricSource.runQuery()
             try:
                 metric = GaugeMetricFamily(
                     'skm_%s' % exp_metric['name'],
                     'metrics from zabbix',
                     labels=exp_metric['labels'].keys())
-                metric.add_metric(exp_metric['labels'].values(), zagent.value)
+                metric.add_metric(exp_metric['labels'].values(), self.metricSource.value)
                 yield metric
             except ValueError as err:
-                self.zcfg['log_point'].doLog('Zabbix exporter: Error: %s' % str(err))
-
+                self.cfg['log_point'].doLog('Zabbix exporter: Error: %s' % str(err))
 
 if __name__ == "__main__":
         possible_path_config = [os.path.dirname(os.path.realpath(__file__)) + '/exporter_config.yml',
@@ -94,10 +109,10 @@ if __name__ == "__main__":
                 continue
 
             with open('./exporter_config.yml') as yml_file:
-                ex_cfg = load(yml_file)
+                ex_cfg = load(yml_file, Loader=FullLoader)
             syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_LOCAL7)
             ex_cfg['log_point'] = Logging(ex_cfg['exporter_config']['syslog'])
             ex_cfg['log_point'].doLog('Zabbix exporter: INFO: %s found' % cfg_path)
-            REGISTRY.register(ZabbixCollector(ex_cfg))
+            REGISTRY.register(MainPromTread(ex_cfg))
             start_http_server(ex_cfg['exporter_config']['exporter_port'])
             while True: time.sleep(1)
