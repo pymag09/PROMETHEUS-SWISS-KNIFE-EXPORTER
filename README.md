@@ -10,13 +10,15 @@ Quick universal exporter. It is quick not because it works fast but because You 
 ## Dependencies
 * PYyaml
 * prometheus_client
-* zabbix_agent
+* zabbix_agent (Optional. if useZabbix=true)
 
 `#pip3 install prometheus_client pyyaml`
 
 ## How it works
 For thouse who is not familiar with zabbix. Zabbix it is a server and an agent. The Server polls agents with some interval. The agent supports a default list of metrics(https://www.zabbix.com/documentation/3.0/manual/config/items/itemtypes/zabbix_agent), and can be extended with custom metrics (https://www.zabbix.com/documentation/3.0/manual/config/items/userparameters?s%5B%5D=userparameter). So we will use only the agent (no server).
-At this point we have a source of metrics, very powerfull and flexible source. `Prometheus` server uses an HTTP connection to get metrics. So literally speaking prometheus is a HTTP client and an export is a HTTP server. `swiss_knife_exporter` is a server which gets metrics from `zabbix_agent` and supply them to prometheus server.
+At this point we have a source of metrics, very powerful and flexible source. `Prometheus` server uses an HTTP connection to get metrics. So literally speaking prometheus is a HTTP client and an export is a HTTP server. `swiss_knife_exporter` is a server which gets metrics from `zabbix_agent` and supply them to prometheus server.
+
+In some special cases it is possible to run swiss_knife_exporter solo - without zabbix_agent. To do this, `useZabbix` option should set to false and `metric` should contain either shell command (using pipe is also possible) or path to shell script.
 
 `exporter_config.yml` contains information how to connect to zabbix_agent and information about metrics. Native config format for promethus is YAML. So exporter_config.yml uses yaml as well.
 All fields are mandatory.
@@ -30,10 +32,13 @@ zabbix_config:
 exporter_config:
   exporter_port: ...
   syslog: False or True
+  useZabbix: False or True
 metrics:
   -
     name: ...
-    metric: ...
+    metric: vm.memory.size[pavailable]
+    ^ OR V
+    metric: "cat /proc/cpuinfo | grep processor | wc -l"
     labels: []
 ```
 ![screenshot](images/example.png)
